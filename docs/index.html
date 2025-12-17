@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rewire - Epistemic Verification for Scheduled Jobs</title>
+    <meta name="description" content="Know when your cron jobs fail. Verify your alerts actually deliver. Rewire claims only what evidence supports.">
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --fg: #e0e0e0;
+            --accent: #4ade80;
+            --muted: #666;
+            --code-bg: #1a1a1a;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+            background: var(--bg);
+            color: var(--fg);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        header {
+            text-align: center;
+            padding: 4rem 0;
+            border-bottom: 1px solid #222;
+        }
+        h1 {
+            font-size: 3rem;
+            font-weight: 300;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
+        }
+        h1 span { color: var(--accent); }
+        .tagline {
+            color: var(--muted);
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+        }
+        .cta {
+            display: inline-block;
+            background: var(--accent);
+            color: var(--bg);
+            padding: 0.75rem 2rem;
+            text-decoration: none;
+            font-weight: 600;
+            margin: 0.5rem;
+            transition: opacity 0.2s;
+        }
+        .cta:hover { opacity: 0.9; }
+        .cta.secondary {
+            background: transparent;
+            border: 1px solid var(--muted);
+            color: var(--fg);
+        }
+        section {
+            padding: 3rem 0;
+            border-bottom: 1px solid #222;
+        }
+        h2 {
+            font-size: 1.5rem;
+            font-weight: 400;
+            margin-bottom: 1.5rem;
+            color: var(--accent);
+        }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+        .feature h3 {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+        .feature p {
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+        pre {
+            background: var(--code-bg);
+            padding: 1.5rem;
+            overflow-x: auto;
+            font-size: 0.9rem;
+            border-left: 3px solid var(--accent);
+        }
+        code {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+        }
+        .philosophy {
+            background: var(--code-bg);
+            padding: 2rem;
+            margin: 1rem 0;
+        }
+        .philosophy p {
+            margin-bottom: 1rem;
+            font-style: italic;
+        }
+        .philosophy ul {
+            list-style: none;
+            padding-left: 1rem;
+        }
+        .philosophy li {
+            color: var(--muted);
+            margin: 0.5rem 0;
+        }
+        .philosophy li::before {
+            content: "✓ ";
+            color: var(--accent);
+        }
+        .philosophy li.no::before {
+            content: "✗ ";
+            color: #f87171;
+        }
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+        footer a { color: var(--accent); }
+        .badge {
+            display: inline-block;
+            background: var(--code-bg);
+            padding: 0.25rem 0.5rem;
+            font-size: 0.8rem;
+            margin: 0.25rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><span>re</span>wire</h1>
+            <p class="tagline">Epistemic verification for scheduled jobs</p>
+            <div>
+                <a href="https://github.com/uprootiny/rewire" class="cta">View on GitHub</a>
+                <a href="#quickstart" class="cta secondary">Quick Start</a>
+            </div>
+            <div style="margin-top: 1rem;">
+                <span class="badge">Python 3.10+</span>
+                <span class="badge">Clojure</span>
+                <span class="badge">SQLite</span>
+                <span class="badge">Formally Specified</span>
+            </div>
+        </header>
+
+        <section>
+            <h2>The Problem</h2>
+            <p>Your monitoring tells you when services are down. But who monitors the monitoring?</p>
+            <ul style="margin: 1rem 0; padding-left: 1.5rem; color: var(--muted);">
+                <li>Did that nightly backup actually run?</li>
+                <li>Is your alerting pipeline actually delivering?</li>
+                <li>When a cron job silently fails, how long until you notice?</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>The Solution</h2>
+            <div class="features">
+                <div class="feature">
+                    <h3>Schedule Verification</h3>
+                    <p>Define expectations: "this job runs every 24h with 30min tolerance." Rewire detects missed runs, long-running jobs, and overlapping executions.</p>
+                </div>
+                <div class="feature">
+                    <h3>Alert Path Testing</h3>
+                    <p>Rewire sends synthetic test alerts and requires acknowledgment. If your alert path breaks, you'll know before a real incident.</p>
+                </div>
+                <div class="feature">
+                    <h3>Formal Specification</h3>
+                    <p>Built with Quint/TLA+ formal methods. Runtime invariant checker ensures the system behaves as specified.</p>
+                </div>
+                <div class="feature">
+                    <h3>Evidence-Based</h3>
+                    <p>Every violation includes evidence. No false positives from guesswork—only facts with timestamps.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="philosophy">
+            <h2 style="color: var(--fg);">Epistemic Contract</h2>
+            <p>Rewire claims only what it can prove:</p>
+            <ul>
+                <li>An expectation exists with explicit parameters</li>
+                <li>Observations arrived (with timestamps)</li>
+                <li>Reality matches or violates declared constraints</li>
+            </ul>
+            <p style="margin-top: 1rem;">Rewire refuses to claim:</p>
+            <ul>
+                <li class="no">That a job's output is correct</li>
+                <li class="no">That a human noticed or acted</li>
+                <li class="no">That "delivery" implies "awareness"</li>
+            </ul>
+        </section>
+
+        <section id="quickstart">
+            <h2>Quick Start</h2>
+<pre><code># Install
+pip install rewire-verify
+
+# Start server
+rewire --db rewire.db --init-db --base-url http://localhost:8080
+
+# Create expectation
+rewire-ctl --base-url http://localhost:8080 --admin-token YOUR_TOKEN \
+  new-schedule --name "nightly-backup" --email you@example.com \
+  --expected-interval-s 86400 --tolerance-s 1800
+
+# Instrument your job
+curl -X POST 'http://localhost:8080/observe/EXP_ID' -d kind=start
+# ... do work ...
+curl -X POST 'http://localhost:8080/observe/EXP_ID' -d kind=end</code></pre>
+        </section>
+
+        <section>
+            <h2>Architecture</h2>
+<pre><code>┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  Your Jobs  │────▶│   Rewire    │────▶│   Alerts    │
+│  (curl)     │     │   Server    │     │   (email)   │
+└─────────────┘     └──────┬──────┘     └─────────────┘
+                           │
+                    ┌──────▼──────┐
+                    │   SQLite    │
+                    │ (append-only│
+                    │ observations)│
+                    └─────────────┘</code></pre>
+            <p style="margin-top: 1rem; color: var(--muted);">
+                Single binary. No external dependencies. Runs on a $5/month VPS.
+            </p>
+        </section>
+
+        <section>
+            <h2>Pricing</h2>
+            <div class="features">
+                <div class="feature">
+                    <h3>Self-Hosted (Free)</h3>
+                    <p>MIT licensed. Run on your own infrastructure. Full source code available.</p>
+                </div>
+                <div class="feature">
+                    <h3>Managed Service (Coming)</h3>
+                    <p>Hosted Rewire with dashboard, integrations, and support. Join the waitlist.</p>
+                </div>
+            </div>
+        </section>
+
+        <footer>
+            <p>
+                <a href="https://github.com/uprootiny/rewire">GitHub</a> ·
+                <a href="https://github.com/uprootiny/rewire/blob/master/LICENSE">MIT License</a> ·
+                <a href="https://github.com/uprootiny/rewire/blob/master/PROVENANCE.md">Provenance</a>
+            </p>
+            <p style="margin-top: 1rem;">
+                Built with assistance from Claude. Formally specified. Epistemically honest.
+            </p>
+        </footer>
+    </div>
+</body>
+</html>

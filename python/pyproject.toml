@@ -3,16 +3,20 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "rewire"
+name = "rewire-verify"
 version = "0.1.0"
 description = "Epistemic expectation verification for scheduled jobs and alert paths"
-readme = "README.md"
+readme = "../README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
-keywords = ["monitoring", "cron", "scheduling", "alerts", "verification"]
+keywords = ["monitoring", "cron", "scheduling", "alerts", "verification", "formal-methods"]
+authors = [
+    {name = "uprootiny", email = "uprootiny@users.noreply.github.com"}
+]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: System Administrators",
+    "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
@@ -20,11 +24,21 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: System :: Monitoring",
+    "Topic :: System :: Systems Administration",
+    "Typing :: Typed",
 ]
+
+[project.urls]
+Homepage = "https://uprootiny.github.io/rewire"
+Repository = "https://github.com/uprootiny/rewire"
+Documentation = "https://uprootiny.github.io/rewire"
+Issues = "https://github.com/uprootiny/rewire/issues"
 
 [project.scripts]
 rewire = "rewire.server:main"
 rewire-ctl = "rewire.cli:main"
+rewire-check = "rewire.invariants:main"
+rewire-sim = "rewire.simulate:run_schedule_simulation"
 
 [project.optional-dependencies]
 dev = [
