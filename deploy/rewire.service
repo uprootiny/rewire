@@ -1,0 +1,25 @@
+[Unit]
+Description=Rewire expectation verifier
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/rewire
+ExecStart=/usr/bin/python3 -m rewire.server \
+  --db /opt/rewire/rewire.db \
+  --base-url ${REWIRE_BASE_URL} \
+  --listen 127.0.0.1 --port 8080 \
+  --admin-token ${REWIRE_ADMIN_TOKEN} \
+  --check-every 60
+
+Restart=always
+RestartSec=2
+EnvironmentFile=-/etc/rewire.env
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/rewire
+
+[Install]
+WantedBy=multi-user.target
