@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+*.db
+*.sqlite
+.nrepl-port
+.cpcache/
+target/
+.lsp/
+.clj-kondo/
+*.jar
+.env
