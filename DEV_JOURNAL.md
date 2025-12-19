@@ -1,200 +1,216 @@
 # Rewire Development Journal
 
-**Date:** 2025-12-18
+**Date:** 2025-12-18 (updated 2025-12-19)
 **Project:** rewire-verify
-**Status:** Published (GitHub, GitHub Pages, PyPI-ready)
+**Status:** Published (GitHub, GitHub Pages, webhooks complete)
 
 ---
 
-## What Took Time and Effort
+## Principles for Tiny Auxiliary Projects
 
-### 1. The Envelope Constraint (30 min)
+These principles emerged from building Rewire and apply to similar small, focused tools.
 
-The original spec was aggressively minimal:
-- Python stdlib only
-- SQLite only
-- Single VPS
+### 1. Do One Thing Well
+
+Rewire does one thing: verify that scheduled jobs run when expected. It doesn't:
+- Execute the jobs
+- Parse job output
+- Manage job configuration
+- Provide a full observability stack
+
+This focus makes the codebase small (~800 lines of Python) and the mental model simple.
+
+**Apply to other projects:**
+- Define the single responsibility in one sentence
+- Reject feature requests that blur the boundary
+- If you need "and", you probably need two tools
+
+### 2. Claim Only What You Can Prove
+
+Rewire's "epistemic honesty" principle:
+- ✓ "I received an observation at timestamp X"
+- ✓ "No observation arrived within the expected window"
+- ✗ "The job failed" (we don't know why, just that we didn't hear from it)
+- ✗ "The alert was read" (we know it was delivered, not that anyone saw it)
+
+**Apply to other projects:**
+- Distinguish what your tool *observed* from what it *infers*
+- Include evidence in every claim
+- When uncertain, say so explicitly
+
+### 3. Stdlib First, Dependencies Later
+
+Rewire started with zero external dependencies:
+- `http.server` for HTTP (not Flask/FastAPI)
+- `sqlite3` for storage (not SQLAlchemy)
+- `smtplib` for email (not SendGrid SDK)
+- `urllib.request` for webhooks (not requests)
+
+This makes installation trivial: `pip install rewire-verify` with no transitive dependencies.
+
+**When to add dependencies:**
+- When stdlib lacks the capability entirely
+- When the dependency is stable and well-maintained
+- When the benefit clearly outweighs the coupling
+
+### 4. Formalize Invariants Early
+
+Rewire has a Quint/TLA+ spec defining six invariants:
+1. Violations exist iff constraints are violated
+2. Observations have monotonic timestamps
+3. Trial states follow valid transitions
+4. etc.
+
+The runtime invariant checker validates these against the live database.
+
+**Apply to other projects:**
+- Write down what must always be true
+- Encode invariants as assertions or runtime checks
+- Test the invariants, not just the happy path
+
+### 5. Concrete Examples Beat Abstract Descriptions
+
+First README draft: "Epistemic expectation verification system"
+Final README: "Know when your cron jobs fail"
+
+First use case: "Schedule monitoring"
+Final use case: "Your nightly `pg_dump` to S3"
+
+**Apply to other projects:**
+- Lead with the pain point, not the solution
+- Show real command-line invocations
+- Include copy-pasteable examples
+
+### 6. Ship, Then Iterate
+
+Rewire shipped with email-only notifications. Webhooks came in the next iteration.
+
+The initial envelope was intentionally tight:
+- Forced clean design decisions
+- Made the first version shippable in one session
+- Created clear "next steps" for future work
+
+**Apply to other projects:**
+- Define the minimal viable feature set
+- Ship it, get it working end-to-end
+- Widen the envelope based on actual needs
+
+### 7. Tests as Specification
+
+Rewire's 39 tests document behavior:
+- `test_missed_when_overdue` - what triggers a violation
+- `test_no_missed_without_any_starts` - honest about unknowns
+- `test_observation_monotonicity` - invariant enforcement
+
+Reading the tests tells you how the system behaves.
+
+**Apply to other projects:**
+- Name tests after the behavior they verify
+- Tests are documentation that can't go stale
+- Property-based tests for invariants
+
+### 8. Text Streams as Interface
+
+Rewire communicates via:
+- HTTP JSON API (text over the network)
+- SQLite (queryable with standard tools)
+- Plain text emails
+- JSON webhook payloads
+
+No binary protocols, no proprietary formats.
+
+**Apply to other projects:**
+- Prefer JSON over custom binary formats
+- Make data inspectable with standard tools
+- Log in structured formats (JSON lines)
+
+---
+
+## Project-Specific Lessons
+
+### What Took Time and Effort
+
+| Task | Time | Lesson |
+|------|------|--------|
+| Envelope constraints | 30 min | Stdlib-only is clean but has a ceiling |
+| Formal specification | 45 min | Clarifies thinking, worth the investment |
+| Dual implementations | 40 min | Don't maintain two unless you test both |
+| Landing page copy | 30 min | Iterate from abstract to concrete |
+| PyPI packaging | 20 min | pyproject.toml works, but has gotchas |
+| Webhook integration | 45 min | Widened envelope with zero new deps |
+
+### The Envelope Evolution
+
+**v0.1 (initial):**
 - Email-only notifications
-- No dependencies
+- SQLite storage
+- Stdlib HTTP server
+- Single admin token
 
-This constraint made the code clean but created real limitations:
-- No async (stdlib http.server is blocking)
-- No proper job queue (checker runs in-thread)
-- No webhooks without adding requests
-- No dashboard without adding Flask/FastAPI
+**v0.2 (current):**
+- Slack, Discord, generic HTTP webhooks
+- Same stdlib-only approach
+- 39 tests, formal spec
 
-**Lesson:** The "stdlib only" constraint is good for bootstrapping but creates a ceiling quickly.
-
-### 2. Formal Specification (45 min)
-
-Writing the Quint spec required thinking carefully about:
-- What exactly is an invariant vs. a temporal property?
-- When should a violation exist vs. not exist?
-- The biconditional: `should_be_violated == has_violation`
-
-The key insight: **the checker is responsible for maintaining invariants**. Between checker ticks, invariants can be violated. This is correct behavior, not a bug.
-
-**Lesson:** Formal specs clarify thinking but don't write themselves. The simulation showing invariant violations between ticks was the "aha" moment.
-
-### 3. The Two-Implementation Approach (40 min)
-
-Writing both Python and Clojure versions:
-- Python: straightforward, tests pass
-- Clojure: written but not runtime-tested (no clj in environment)
-
-**Lesson:** Dual implementations sound good but double the maintenance. The Clojure version may have bugs I couldn't catch.
-
-### 4. Landing Page Copy (30 min)
-
-Finding the right value proposition took iteration:
-- First draft: too abstract ("epistemic verification")
-- Second draft: too technical ("constraint evaluation")
-- Final: **"Know when your cron jobs fail"** - concrete pain point
-
-The use cases needed to be specific:
-- Not "monitoring" but "your nightly pg_dump"
-- Not "alerting" but "Finance expects the report Monday 9am"
-
-**Lesson:** Concrete scenarios beat abstract features.
-
-### 5. PyPI Packaging (20 min)
-
-Friction points:
-- README path outside package directory
-- License format deprecation warnings
-- Dependency conflicts with twine/urllib3
-
-**Lesson:** Python packaging has rough edges. The new pyproject.toml format is better but still has gotchas.
+**Potential v0.3:**
+- `/metrics` endpoint (Prometheus)
+- `/health` endpoint (Kubernetes)
+- YAML config file
 
 ---
 
-## The Tight Envelope Problem
+## Checklist for New Tiny Projects
 
-Rewire's current constraints:
+Use this checklist when starting a new auxiliary tool:
 
-| Constraint | Implication |
-|------------|-------------|
-| Email-only | No Slack, PagerDuty, webhooks |
-| SQLite-only | No horizontal scaling |
-| Stdlib HTTP | No async, no WebSocket |
-| Single-binary | No dashboard, no API explorer |
-| No auth beyond token | No multi-tenant |
-
-These make it a **personal tool**, not a **team tool**.
-
----
-
-## Brainstorm: Widening the Envelope
-
-### Tier 1: Minimal Additions (keep stdlib spirit)
-
-1. **Webhook notifications**
-   - Add `urllib.request` POST to arbitrary URLs
-   - JSON payload with violation details
-   - Enables Slack/Discord via incoming webhooks
-   - ~50 lines of code
-
-2. **Prometheus metrics endpoint**
-   - `/metrics` endpoint with text format
-   - `rewire_expectations_total`, `rewire_violations_open`
-   - No dependencies (text format is simple)
-   - Enables Grafana dashboards
-
-3. **SQLite → PostgreSQL option**
-   - psycopg2 is well-maintained
-   - Same schema, connection string flag
-   - Enables cloud databases, replication
-
-### Tier 2: Useful Dependencies (small additions)
-
-4. **Simple web dashboard**
-   - Add Flask (~1 dependency)
-   - List expectations, recent observations, open violations
-   - No JS framework, just server-rendered HTML
-   - Mobile-friendly status page
-
-5. **YAML config file**
-   - Define expectations in YAML, not just CLI
-   - Version-control your monitoring config
-   - `rewire sync --config expectations.yaml`
-
-6. **Healthcheck integration**
-   - `/health` returns JSON with all expectation statuses
-   - Kubernetes readiness/liveness probes
-   - Uptime monitoring integration
-
-### Tier 3: Real Product Features
-
-7. **Multi-tenant mode**
-   - API keys per user/org
-   - Isolation of expectations
-   - Usage limits
-
-8. **Incident timeline**
-   - When did violation start?
-   - When was it acknowledged?
-   - When did it resolve?
-   - Export to CSV/JSON
-
-9. **Runbook links**
-   - Attach runbook URL to each expectation
-   - Violation emails include "What to do" link
-   - Reduces MTTR
-
-10. **Dead man's switch mode**
-    - Inverse of schedule: "alert if I DON'T hear from this service"
-    - Heartbeat monitoring
-    - Common pattern, simple to add
+```
+[ ] One-sentence description of what it does
+[ ] One-sentence description of what it doesn't do
+[ ] Identify the single data format (JSON, SQLite, text)
+[ ] List invariants that must always hold
+[ ] Write three concrete use cases with commands
+[ ] Define the minimal feature set for v0.1
+[ ] Choose: stdlib-only or minimal dependencies?
+[ ] Set up: tests, CI, README, LICENSE
+[ ] Ship it somewhere (GitHub, PyPI, Docker Hub)
+[ ] Write down what v0.2 could add
+```
 
 ---
 
-## Recommended Next Steps
+## Anti-Patterns to Avoid
 
-### Quick Wins (1-2 hours each)
+### 1. Premature Abstraction
+Bad: "Let's add a plugin system for notification backends"
+Good: Add Slack webhook directly, refactor later if needed
 
-1. **Add webhook notifications** - highest ROI, enables all integrations
-2. **Add `/metrics` endpoint** - observability without dashboard
-3. **Add YAML config** - GitOps-friendly
+### 2. Configuration Explosion
+Bad: 47 environment variables for every possible option
+Good: Sensible defaults, override only what matters
 
-### Medium Effort (half-day each)
+### 3. Claiming Too Much
+Bad: "Rewire ensures your jobs run successfully"
+Good: "Rewire tells you when it didn't hear from your job"
 
-4. **Flask dashboard** - visual status page
-5. **PostgreSQL support** - production-ready storage
-6. **Healthcheck endpoint** - Kubernetes integration
+### 4. Framework Addiction
+Bad: "Let's use FastAPI, SQLAlchemy, Celery, Redis..."
+Good: Start with stdlib, add dependencies when pain is clear
 
-### Larger Scope (multi-day)
-
-7. **Multi-tenant SaaS** - requires auth, billing, isolation
-8. **Managed service** - infrastructure, operations, support
-
----
-
-## What Would Make This Truly Useful?
-
-The current version solves: "I want to know if my cron job didn't run."
-
-To be **widely useful**, it needs to solve: "My team wants visibility into all our scheduled jobs without setting up Datadog."
-
-That requires:
-- Dashboard (visual status)
-- Team access (multi-user)
-- Integrations (Slack, PagerDuty)
-- Easy deployment (Docker, one-click)
-
-The **minimum viable widening**: webhooks + dashboard + Docker image.
+### 5. Premature Optimization
+Bad: "We need async for performance"
+Good: Blocking HTTP server handles thousands of requests fine
 
 ---
 
-## Honest Assessment
+## Links
 
-**Rewire is currently a good personal tool.**
+- **Repository:** https://github.com/uprootiny/rewire
+- **Landing Page:** https://uprootiny.github.io/rewire
+- **Package:** `pip install rewire-verify`
 
-It's well-documented, formally specified, and works. But the envelope is too tight for team use.
+---
 
-**To make it sellable:**
-1. Add webhooks (Slack integration)
-2. Add simple dashboard
-3. Publish Docker image
-4. Write "5-minute setup" guide
+## Changelog
 
-That's maybe 8 hours of work to go from "interesting project" to "useful product."
+- **2025-12-18:** Initial release with email notifications
+- **2025-12-19:** Added webhook support (Slack, Discord, generic HTTP)
