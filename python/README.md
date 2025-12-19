@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-26%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-39%20passing-brightgreen.svg)](#testing)
 [![Formally Specified](https://img.shields.io/badge/formally-specified-purple.svg)](specs/rewire.qnt)
 
 **Epistemic verification for scheduled jobs and alert delivery paths.**
@@ -108,6 +108,11 @@ If the job doesn't run, or runs too long, or overlaps—you get an email.
 - Requires explicit acknowledgment (click a link)
 - Detects broken email delivery, spam filters, etc.
 
+### Webhook Notifications
+- Slack, Discord, and generic HTTP webhooks
+- JSON payloads with full violation details
+- No external dependencies (stdlib urllib)
+
 ### Formal Specification
 - [Quint/TLA+ specification](specs/rewire.qnt) defines invariants
 - Runtime invariant checker validates system state
@@ -157,6 +162,49 @@ Every violation includes evidence. No guesswork.
 | `end` | Job execution completed |
 | `ping` | Heartbeat / alive signal |
 | `ack` | Alert acknowledgment |
+
+## Webhook Integration
+
+### Slack
+
+```bash
+python3 -m rewire.server \
+  --db rewire.db \
+  --base-url https://your-domain.com \
+  --slack-webhook "https://hooks.slack.com/services/T.../B.../xxx"
+```
+
+Violations appear as formatted Slack messages with color-coded severity.
+
+### Discord
+
+```bash
+python3 -m rewire.server \
+  --db rewire.db \
+  --base-url https://your-domain.com \
+  --discord-webhook "https://discord.com/api/webhooks/xxx/yyy"
+```
+
+### Generic HTTP Webhook
+
+```bash
+python3 -m rewire.server \
+  --db rewire.db \
+  --base-url https://your-domain.com \
+  --webhook "https://your-endpoint.com/rewire" \
+  --webhook "https://backup-endpoint.com/alerts"
+```
+
+The `--webhook` flag can be repeated for multiple endpoints. Payload format:
+
+```json
+{
+  "event": "violation.opened",
+  "expectation": {"id": "...", "name": "...", "type": "schedule"},
+  "violation": {"code": "missed", "message": "...", "evidence": {...}},
+  "timestamp": 1234567890
+}
+```
 
 ## Deployment
 
@@ -212,9 +260,10 @@ rewire/
 │   │   ├── db.py          # SQLite storage
 │   │   ├── rules.py       # Constraint evaluation
 │   │   ├── notify.py      # Email notifications
+│   │   ├── webhooks.py    # Slack, Discord, HTTP webhooks
 │   │   ├── invariants.py  # Runtime invariant checker
 │   │   └── simulate.py    # Model simulation
-│   └── tests/             # 26 tests
+│   └── tests/             # 39 tests
 ├── clojure/               # Clojure implementation
 ├── specs/
 │   └── rewire.qnt         # Formal specification
@@ -224,11 +273,10 @@ rewire/
 
 ## Roadmap
 
-- [ ] Docker image
-- [ ] Webhook notifications (Slack, PagerDuty)
+- [x] Webhook notifications (Slack, Discord, generic HTTP)
 - [ ] Web dashboard
-- [ ] Managed service offering
 - [ ] Prometheus metrics endpoint
+- [ ] Managed service offering
 
 ## License
 

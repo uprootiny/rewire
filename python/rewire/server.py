@@ -20,6 +20,7 @@ from typing import Optional
 
 from rewire.db import Store, CreateExpectationParams
 from rewire.notify import Notifier, SMTPConfig
+from rewire.webhooks import WebhookNotifier, WebhookPayload
 import rewire.rules as rules
 
 
@@ -189,11 +190,13 @@ class RewireHTTP(ThreadingHTTPServer):
         handler: type,
         store: Store,
         notifier: Notifier,
+        webhook_notifier: WebhookNotifier,
         cfg: Config,
     ) -> None:
         super().__init__(addr, handler)
         self.store = store
         self.notifier = notifier
+        self.webhook_notifier = webhook_notifier
         self.cfg = cfg
 
 
@@ -248,13 +251,13 @@ class Checker(threading.Thread):
             openv = store.open_violation(exp_id, code)
             if openv is None:
                 vid = store.create_violation(exp_id, code, msg, json.dumps(ev))
-                self._notify_violation(owner, name, "schedule", code, msg, ev, vid)
+                self._notify_violation(owner, name, "schedule", code, msg, ev, vid, exp_id)
             elif cfg.renotify_after_s and openv["last_notified_at"]:
                 if now - int(openv["last_notified_at"]) >= cfg.renotify_after_s:
                     self._notify_violation(
                         owner, name, "schedule", code,
                         openv["message"], json.loads(openv["evidence_json"]),
-                        int(openv["id"])
+                        int(openv["id"]), exp_id
                     )
 
     def _check_alertpath(
@@ -295,13 +298,13 @@ class Checker(threading.Thread):
                 openv = store.open_violation(exp_id, code)
                 if openv is None:
                     vid = store.create_violation(exp_id, code, msg, json.dumps(ev))
-                    self._notify_violation(owner, name, "alert_path", code, msg, ev, vid)
+                    self._notify_violation(owner, name, "alert_path", code, msg, ev, vid, exp_id)
 
         store.close_violations(exp_id, ["no_ack"])
 
     def _notify_violation(
         self, owner: str, name: str, exp_type: str, code: str,
-        msg: str, ev: dict, viol_id: int
+        msg: str, ev: dict, viol_id: int, exp_id: str = ""
     ) -> None:
         subj = f"[rewire] VIOLATION {code}: {name}"
         body = (
@@ -314,6 +317,20 @@ class Checker(threading.Thread):
             "Rewire reports only mismatches it can justify with evidence.\n"
         )
         self.httpd.notifier.send_email(owner, subj, body)
+
+        # Send webhook notifications
+        payload = WebhookPayload(
+            event="violation.opened",
+            expectation_id=exp_id,
+            expectation_name=name,
+            expectation_type=exp_type,
+            violation_code=code,
+            message=msg,
+            evidence=ev,
+            timestamp=now_i(),
+        )
+        self.httpd.webhook_notifier.notify(payload)
+
         self.httpd.store.mark_notified(viol_id)
 
 
@@ -332,6 +349,11 @@ def main() -> None:
     ap.add_argument("--smtp-user", default=None, help="SMTP username")
     ap.add_argument("--smtp-pass", default=None, help="SMTP password")
     ap.add_argument("--from-email", default="rewire@localhost", help="From address")
+    # Webhook arguments
+    ap.add_argument("--slack-webhook", default=None, help="Slack incoming webhook URL")
+    ap.add_argument("--discord-webhook", default=None, help="Discord webhook URL")
+    ap.add_argument("--webhook", action="append", dest="webhooks", default=[],
+                    help="Generic webhook URL (can be repeated)")
     args = ap.parse_args()
 
     store = Store(args.db)
@@ -347,6 +369,18 @@ def main() -> None:
         from_email=args.from_email,
     ))
 
+    # Configure webhook notifier
+    webhook_notifier = WebhookNotifier()
+    if args.slack_webhook:
+        webhook_notifier.set_slack(args.slack_webhook)
+        print(f"slack webhook configured", file=sys.stderr)
+    if args.discord_webhook:
+        webhook_notifier.set_discord(args.discord_webhook)
+        print(f"discord webhook configured", file=sys.stderr)
+    for url in args.webhooks:
+        webhook_notifier.add_webhook(url)
+        print(f"webhook configured: {url}", file=sys.stderr)
+
     cfg = Config(
         base_url=args.base_url,
         admin_token=args.admin_token,
@@ -355,7 +389,7 @@ def main() -> None:
         send_recovery=False,
     )
 
-    httpd = RewireHTTP((args.listen, args.port), Handler, store, notifier, cfg)
+    httpd = RewireHTTP((args.listen, args.port), Handler, store, notifier, webhook_notifier, cfg)
     stop_evt = threading.Event()
     checker = Checker(httpd, stop_evt)
     checker.start()
