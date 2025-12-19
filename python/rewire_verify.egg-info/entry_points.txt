@@ -1,0 +1,5 @@
+[console_scripts]
+rewire = rewire.server:main
+rewire-check = rewire.invariants:main
+rewire-ctl = rewire.cli:main
+rewire-sim = rewire.simulate:run_schedule_simulation
