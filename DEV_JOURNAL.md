@@ -210,7 +210,97 @@ Good: Blocking HTTP server handles thousands of requests fine
 
 ---
 
+## Relation to Raindesk Witnesses
+
+Raindesk is a "witness dashboard" - a read-only projection of infrastructure state across multiple servers. The key insight from its audit:
+
+> "Dashboard is a projection of an event log. If there is no event log, the dashboard is fiction."
+
+### Shared Epistemic Philosophy
+
+| Principle | Rewire | Raindesk |
+|-----------|--------|----------|
+| Witness vs Control | Observes job timing, doesn't run jobs | Shows state, doesn't modify it |
+| Append-only truth | SQLite observations log | JSONL event ledger |
+| Claim only provable | "No observation in window" not "job failed" | "Last seen at X" not "service healthy" |
+| Evidence required | Violations include timestamps, durations | Events include source, commit, timestamp |
+
+### The Witness Pattern
+
+Both projects implement the **witness pattern**:
+
+```
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│   Reality    │────▶│  Event Log   │────▶│   Witness    │
+│ (jobs, hosts)│     │(append-only) │     │ (dashboard)  │
+└──────────────┘     └──────────────┘     └──────────────┘
+                            │
+                     ┌──────┴──────┐
+                     │  Validator  │
+                     │ (invariants)│
+                     └─────────────┘
+```
+
+**Witnesses don't control.** They truthfully project what the event log contains.
+
+**Controllers don't witness.** They take actions and write events to the log.
+
+This separation prevents:
+- Dashboards that lie (showing aspirational state)
+- Controllers that can't be audited (actions without events)
+- Circular dependencies (dashboard triggers action that updates dashboard)
+
+### How Rewire Fits Into Raindesk
+
+The PROJECT-AUDIT recommends deploying Rewire as Raindesk's event log:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                     raindesk.dev                         │
+│              (Read-only witness dashboard)               │
+└──────────────────────────┬──────────────────────────────┘
+                           │ fetches /witness.json
+           ┌───────────────┴───────────────┐
+           │                               │
+    ┌──────┴──────┐                ┌───────┴──────┐
+    │ Hyperstitious│                │    FinML     │
+    └──────┬──────┘                └───────┬──────┘
+           │                               │
+    ┌──────┴──────┐                ┌───────┴──────┐
+    │   Rewire    │                │   Rewire     │
+    │ (Event log) │                │ (Event log)  │
+    └─────────────┘                └──────────────┘
+```
+
+Jobs POST to Rewire → Rewire validates constraints → Raindesk reads Rewire's SQLite → Dashboard shows truth.
+
+### Applying These Principles
+
+When building witness systems:
+
+1. **Define what "truth" means** - What can you actually observe? A timestamp? A status code? A file hash?
+
+2. **Separate read and write paths** - Writers append to the log. Readers project from the log. Never mix.
+
+3. **Make staleness visible** - If data is 5 minutes old, say so. "Last updated: 5m ago" not a green checkmark.
+
+4. **Invariants are biconditionals** - `is_violated ↔ constraint_broken`. Not "if we detect it" but "iff it's true".
+
+5. **Events are immutable** - Never update an event. Append a correction event instead.
+
+### Anti-Patterns in Witness Systems
+
+| Anti-Pattern | Example | Fix |
+|--------------|---------|-----|
+| Optimistic display | Show "healthy" until proven sick | Show "unknown" until proven healthy |
+| Stale cache | Cache says "up" but service died 10min ago | Always show cache age |
+| Circular witness | Dashboard triggers alert that updates dashboard | Separate witness from controller |
+| Invented data | Show "99.9% uptime" without measurement | Show only measured values |
+
+---
+
 ## Changelog
 
 - **2025-12-18:** Initial release with email notifications
 - **2025-12-19:** Added webhook support (Slack, Discord, generic HTTP)
+- **2025-12-19:** Added witness pattern documentation (Raindesk connection)
